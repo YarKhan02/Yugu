@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/YarKhan02/PathWise/internal/config"
 	"github.com/YarKhan02/PathWise/internal/version"
 )
 
@@ -19,20 +20,37 @@ type globalFlags struct {
 	verbose    bool
 }
 
-func (g *globalFlags) resolveStorePath(projectRoot string) string {
-	if g.storePath == "" {
-		return filepath.Join(projectRoot, ".pathwise", "pathwise.db")
+// resolveStorePath decides where PathWise's own SQLite database lives:
+// the --store flag wins, then store in .pathwise.yaml, then the default. All
+// commands share it so they read and write the same store.
+func (g *globalFlags) resolveStorePath(projectRoot string) (string, error) {
+	if g.storePath != "" {
+		return storeFile(g.storePath), nil
 	}
-	// A directory (trailing slash, or an existing dir) is taken as the store's
-	// home and the db file placed inside it. SQLite given a directory fails to
-	// open it with a cryptic "out of memory" (CANTOPEN), so handle it here.
-	if strings.HasSuffix(g.storePath, string(os.PathSeparator)) {
-		return filepath.Join(g.storePath, "pathwise.db")
+	cfg, err := config.Load(projectRoot)
+	if err != nil {
+		return "", err
 	}
-	if info, err := os.Stat(g.storePath); err == nil && info.IsDir() {
-		return filepath.Join(g.storePath, "pathwise.db")
+	if cfg.Store != "" {
+		if filepath.IsAbs(cfg.Store) {
+			return storeFile(cfg.Store), nil
+		}
+		return storeFile(filepath.Join(projectRoot, cfg.Store)), nil
 	}
-	return g.storePath
+	return filepath.Join(projectRoot, ".pathwise", "pathwise.db"), nil
+}
+
+// storeFile treats a directory path (trailing slash, or an existing dir) as the
+// store's home and places pathwise.db inside it; a file path is returned as is.
+// SQLite handed a directory fails to open with a cryptic CANTOPEN, so resolve it.
+func storeFile(p string) string {
+	if strings.HasSuffix(p, string(os.PathSeparator)) {
+		return filepath.Join(p, "pathwise.db")
+	}
+	if info, err := os.Stat(p); err == nil && info.IsDir() {
+		return filepath.Join(p, "pathwise.db")
+	}
+	return p
 }
 
 // NewRootCommand builds the command tree.

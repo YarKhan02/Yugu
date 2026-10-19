@@ -56,8 +56,8 @@ instead of the human summary, for piping into CI.`,
 	}
 
 	f := cmd.Flags()
-	f.StringVar(&dbURL, "db", os.Getenv("DATABASE_URL"),
-		"PostgreSQL connection URL, authoritative for current schema (default $DATABASE_URL)")
+	f.StringVar(&dbURL, "db", "",
+		"PostgreSQL connection URL, authoritative for current schema (overrides database_url in .pathwise.yaml; default $DATABASE_URL)")
 	f.BoolVar(&allowNoDB, "allow-no-db", false,
 		"proceed without a database, reconstructing schema from migrations only")
 	f.StringVar(&migrationsFlag, "migrations", "",
@@ -87,6 +87,14 @@ func runScan(ctx context.Context, cmd *cobra.Command, g *globalFlags,
 		cfg.MigrationsDir = migrationsFlag
 	}
 
+	// --db wins, then database_url in config, then $DATABASE_URL.
+	if dbURL == "" {
+		dbURL = cfg.DatabaseURL
+	}
+	if dbURL == "" {
+		dbURL = os.Getenv("DATABASE_URL")
+	}
+
 	// Schema source is decided before any analysis runs, because it changes
 	// the strength of every schema-derived conclusion downstream.
 	schemaSource := sqlite.SchemaNone
@@ -109,7 +117,10 @@ func runScan(ctx context.Context, cmd *cobra.Command, g *globalFlags,
 		}
 	}
 
-	storePath := g.resolveStorePath(proj.Root)
+	storePath, err := g.resolveStorePath(proj.Root)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(storePath), 0o755); err != nil {
 		return fmt.Errorf("create store directory: %w", err)
 	}

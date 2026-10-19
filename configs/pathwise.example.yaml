@@ -1,64 +1,7 @@
-# Example PathWise project policy. Copy to .pathwise.yaml at your project
-# root and edit.
-#
-# Everything here is optional, but two of the four checks cannot run without
-# it. PathWise has no way to derive which column discriminates tenants or
-# which fields an endpoint is permitted to return, so without this file those
-# checks stay inactive — and `scan` will tell you so rather than reporting a
-# clean result.
-#
-# Keep secrets out of this file. Pass the database URL via --db or
-# $DATABASE_URL; it is never written to scan history.
-
-# Router adapter. Omit to autodetect. v1 supports gin.
 framework: gin
 
-# golang-migrate SQL files. Used for schema provenance — which migration
-# introduced a column — and for the degraded --allow-no-db mode.
+database_url: ${DATABASE_URL}
+
+store: .pathwise/pathwise.db
+
 migrations_dir: db/migrations
-
-# ---------------------------------------------------------------------------
-# Enables: missing_tenant_filter
-# ---------------------------------------------------------------------------
-tenancy:
-  # The tenant discriminator column.
-  column: org_id
-
-  # Tables that must always be filtered by it. Leave empty to mean "every
-  # table that has a column of this name".
-  tables:
-    - students
-    - batches
-
-# ---------------------------------------------------------------------------
-# Enables: response_field_exceeds_scope
-# ---------------------------------------------------------------------------
-# Columns that must not reach a response outside an endpoint's declared scope.
-sensitive_columns:
-  - users.password_hash
-  - students.national_id
-  - students.email
-
-# Per-endpoint allowances. An endpoint absent from this list may return no
-# sensitive column at all.
-endpoint_scopes:
-  - endpoint: GET /students/:id
-    allow_fields:
-      - students.email
-
-# ---------------------------------------------------------------------------
-# Analysis hints. PathWise detects common shapes on its own; these seed it
-# with project-specific names it could not guess.
-# ---------------------------------------------------------------------------
-
-# Functions returning the authenticated principal. These anchor the
-# identity-provenance analysis that separates a caller-controlled value from
-# one derived from the session.
-identity_funcs:
-  - myapp/internal/auth.CurrentUser
-
-# Functions to treat as authorization checks even when their names do not
-# match the built-in patterns.
-auth_check_funcs:
-  - myapp/internal/auth.CanAccessStudent
-  - myapp/internal/auth.HasPermission

@@ -49,7 +49,11 @@ func runServe(cmd *cobra.Command, g *globalFlags, addr string) error {
 	if err != nil {
 		return err
 	}
-	store, err := sqlite.Open(ctx, g.resolveStorePath(proj.Root))
+	storePath, err := g.resolveStorePath(proj.Root)
+	if err != nil {
+		return err
+	}
+	store, err := sqlite.Open(ctx, storePath)
 	if err != nil {
 		return err
 	}

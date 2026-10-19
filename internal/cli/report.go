@@ -40,7 +40,11 @@ func runReport(ctx context.Context, cmd *cobra.Command, g *globalFlags, out stri
 		return err
 	}
 
-	store, err := sqlite.Open(ctx, g.resolveStorePath(proj.Root))
+	storePath, err := g.resolveStorePath(proj.Root)
+	if err != nil {
+		return err
+	}
+	store, err := sqlite.Open(ctx, storePath)
 	if err != nil {
 		return err
 	}
@@ -59,7 +63,7 @@ func runReport(ctx context.Context, cmd *cobra.Command, g *globalFlags, out stri
 	}
 
 	if out == "" {
-		out = filepath.Join(filepath.Dir(g.resolveStorePath(proj.Root)), "report.html")
+		out = filepath.Join(filepath.Dir(storePath), "report.html")
 	}
 	rep, err := writeReport(ctx, store, scan, stored.Name, out)
 	if err != nil {

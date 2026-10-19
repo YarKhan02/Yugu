@@ -100,7 +100,11 @@ func runTest(ctx context.Context, cmd *cobra.Command, g *globalFlags, fl testFla
 	if err != nil {
 		return err
 	}
-	store, err := sqlite.Open(ctx, g.resolveStorePath(proj.Root))
+	storePath, err := g.resolveStorePath(proj.Root)
+	if err != nil {
+		return err
+	}
+	store, err := sqlite.Open(ctx, storePath)
 	if err != nil {
 		return err
 	}

@@ -27,6 +27,16 @@ type Config struct {
 	// Framework pins the router adapter. Empty means autodetect.
 	Framework string `yaml:"framework"`
 
+	// DatabaseURL is the PostgreSQL connection URL, authoritative for schema.
+	// Only used when --db is not passed. os.ExpandEnv runs on it, so a value
+	// like ${DATABASE_URL} keeps the credential out of the committed file.
+	DatabaseURL string `yaml:"database_url"`
+
+	// Store is where PathWise keeps its own SQLite database, as a file path
+	// relative to the project root unless absolute. Only used when --store is
+	// not passed. Default: .pathwise/pathwise.db.
+	Store string `yaml:"store"`
+
 	// MigrationsDir holds golang-migrate SQL files, used for schema
 	// provenance and for the degraded migrations-only mode.
 	MigrationsDir string `yaml:"migrations_dir"`
@@ -92,6 +102,8 @@ func Load(projectRoot string) (*Config, error) {
 }
 
 func (c *Config) normalize() {
+	// Expand env refs so credentials can stay in the environment, not the file.
+	c.DatabaseURL = os.ExpandEnv(c.DatabaseURL)
 	for i := range c.EndpointScopes {
 		parts := strings.Fields(c.EndpointScopes[i].Endpoint)
 		if len(parts) == 2 {
