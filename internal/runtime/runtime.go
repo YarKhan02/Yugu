@@ -36,6 +36,10 @@ type Endpoint struct {
 	Method string
 	Path   string
 	Roles  []string // roles the static analysis found gating this endpoint
+	// SessionEndReason, when set, means the endpoint terminates the caller's
+	// session (a logout and the like). It is skipped by default so it does not
+	// invalidate the credential later scenarios run as; opt in with --allow.
+	SessionEndReason string
 }
 
 // Outcome is the verdict for one scenario.
@@ -97,6 +101,10 @@ func Plan(endpoints []Endpoint, identities []Identity, allowed map[string]bool) 
 	for _, e := range endpoints {
 		skip, skipOutcome := "", Outcome("")
 		switch {
+		case e.SessionEndReason != "" && !allowed[Key(e.Method, e.Path)]:
+			// Firing a logout-like endpoint would invalidate the token every other
+			// scenario runs as, so it is skipped unless explicitly opted in.
+			skip, skipOutcome = "session-terminating: "+e.SessionEndReason+" (safety: opt-in with --allow)", OutcomeBlocked
 		case !strings.EqualFold(e.Method, "GET") && !allowed[Key(e.Method, e.Path)]:
 			skip, skipOutcome = "non-GET method is not executed (safety: opt-in with --allow)", OutcomeBlocked
 		case strings.ContainsAny(e.Path, "{:*"):

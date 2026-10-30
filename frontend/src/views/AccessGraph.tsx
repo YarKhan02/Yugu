@@ -355,7 +355,7 @@ function GraphCanvas(props: {
         onNodeMouseEnter={onNodeEnter} onNodeMouseLeave={() => setHover(null)}
         onPaneClick={() => onSelect(null)}
         onMove={(_, vp) => { const min = vp.zoom < 0.5; setLodMin((p) => (p !== min ? min : p)); }}
-        minZoom={0.05} maxZoom={3} fitView proOptions={{ hideAttribution: true }}
+        minZoom={0.05} maxZoom={3} fitView onlyRenderVisibleElements proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{ type: "default" }} nodesConnectable={false} elementsSelectable>
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
         <MiniMap pannable zoomable nodeColor={miniColor} nodeStrokeWidth={2} />

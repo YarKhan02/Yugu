@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Scan, RuntimeTest } from "./types";
+import type { Scan, RuntimeTest, FuzzFinding } from "./types";
 
 // runTests asks the local server to exercise the running app as the supplied
 // identities and returns the outcomes. Tokens are sent to localhost only, used
@@ -11,6 +11,25 @@ export async function runTests(req: {
   endpoints: string[];
 }): Promise<RuntimeTest[]> {
   const r = await fetch("api/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!r.ok) throw new Error((await r.text()) || `server returned ${r.status}`);
+  return r.json();
+}
+
+// runFuzz asks the local server to actively fuzz the selected write endpoints of
+// the running app and returns the behavioral breaks found. The token is sent to
+// localhost only, used in memory for the run, and never persisted. An empty
+// endpoints list means every write endpoint.
+export async function runFuzz(req: {
+  baseUrl: string;
+  token: string;
+  model: string;
+  endpoints: string[];
+}): Promise<FuzzFinding[]> {
+  const r = await fetch("api/fuzz", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),

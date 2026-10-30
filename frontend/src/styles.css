@@ -162,6 +162,9 @@ nav { padding: 8px; overflow-y: auto; flex: 1; }
 .rt-banner .ic { color: var(--sev-high); flex: none; margin-top: 1px; }
 .rt-banner h3 { margin: 0 0 3px; font-size: 13.5px; color: var(--sev-high); }
 .rt-banner p { margin: 0; font-size: 12.5px; color: var(--ink); }
+/* A clean run (no divergence) is confirmed, not alarmed. */
+.rt-banner.ok { border-color: color-mix(in srgb, var(--get) 30%, transparent); background: color-mix(in srgb, var(--get) 7%, transparent); }
+.rt-banner.ok .ic, .rt-banner.ok h3 { color: var(--get); }
 .rt-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px 14px; align-items: center;
   padding: 11px 14px; border-bottom: 1px solid var(--border); }
 .rt-row:last-child { border-bottom: none; }
@@ -206,6 +209,8 @@ nav { padding: 8px; overflow-y: auto; flex: 1; }
 .rt-check:hover { background: var(--panel-2); }
 .rt-check input { flex: none; }
 .rt-check.mut { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--sev-high) 55%, transparent); }
+.rt-tag { margin-left: auto; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--sev-high); border: 1px solid color-mix(in srgb, var(--sev-high) 40%, transparent); border-radius: 999px; padding: 1px 7px; }
 .rt-allowempty { padding: 14px; font-size: 12.5px; color: var(--muted); }
 .rt-run { display: flex; align-items: center; gap: 12px; }
 .btn.primary { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-ink); }
@@ -417,6 +422,10 @@ select.filter { height: 32px; border: 1px solid var(--border); background: var(-
 .ag-rf.lod-min .rf-cols, .ag-rf.lod-min .rf-more { display: none; }
 .ag-rf.lod-min .rf-table { height: 34px; }
 .ag-rf.lod-min .rf-ep .ag-path { display: none; }
+/* Zoomed out, the dashed FK web is unreadable and the heaviest layer to paint;
+   drop it and the mass hover-dim transition so panning the full graph stays smooth. */
+.ag-rf.lod-min .ag-fkedge { display: none; }
+.ag-rf.lod-min .react-flow__node { transition: none; }
 
 
 /* ---- scan history ---- */
@@ -433,3 +442,47 @@ select.filter { height: 32px; border: 1px solid var(--border); background: var(-
 .hist-rows { border-top: 1px solid var(--border); }
 .hist-rows .rt-row { padding: 9px 14px; border-bottom: 1px solid var(--border); }
 .hist-rows .rt-row:last-child { border-bottom: none; }
+
+/* Scan History redesign: summary, controls, filters, and the per-run table. */
+.hist-empty { padding: 24px; color: var(--muted); font-size: 13px; }
+.hist-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 8px; }
+.hist-stat { border: 1px solid var(--border); border-radius: var(--r); background: var(--panel); padding: 14px 16px; }
+.hist-stat-v { font-size: 26px; font-weight: 650; line-height: 1; color: var(--ink); }
+.hist-stat-l { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.hist-stat.fail .hist-stat-v { color: var(--sev-medium); }
+.hist-stat.pass .hist-stat-v { color: var(--get); }
+.hist-stat.unverified .hist-stat-v { color: var(--ev-unverified); }
+.hist-note { margin: 0 0 16px; font-size: 11.5px; color: var(--muted); }
+.hist-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.hist-search { flex: 1; }
+.hist-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.chipbtn { height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel);
+  font-size: 12px; color: var(--muted); cursor: pointer; }
+.chipbtn:hover { background: var(--panel-2); color: var(--ink); }
+.chipbtn.active { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-ink); font-weight: 550; }
+.linkbtn { background: none; border: none; color: var(--accent-ink); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+
+.rt-tablewrap { border-top: 1px solid var(--border); overflow-x: auto; }
+.rt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rt-table thead th { text-align: left; padding: 8px 14px; font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--border); background: var(--panel-2); }
+.rt-table td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.rt-table tr:last-child td { border-bottom: none; }
+.rt-trow { cursor: pointer; }
+.rt-trow:hover td { background: var(--panel-2); }
+.rt-trow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.rt-ep { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-pred { color: var(--muted); }
+.rt-code { color: var(--ink); white-space: nowrap; }
+.rt-fcol { text-align: center; }
+.rt-fwarn { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--sev-medium); }
+.rt-blurb { margin: 10px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+.isec .rt-body { margin: 0; }
+
+/* Active-fuzzing results table (Fuzz view). */
+.fz-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.fz-table th, .fz-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.fz-table th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }
+.fz-table tr:last-child td { border-bottom: 0; }
+.fz-kind { color: var(--sev-high); font-weight: 600; white-space: nowrap; }
+.fz-detail { color: var(--muted); }

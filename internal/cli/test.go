@@ -178,7 +178,7 @@ func toStoredResults(results []runtime.Result) []sqlite.TestResult {
 		out = append(out, sqlite.TestResult{
 			Method: r.Method, Path: r.Path, IdentityRole: r.Identity.Role,
 			Expectation: expectation, SafetyClass: safety,
-			Outcome: string(r.Outcome), StatusCode: r.Status, Detail: r.Detail,
+			Outcome: string(r.Outcome), StatusCode: r.Status, Detail: r.Detail, Body: r.Body,
 		})
 	}
 	return out
@@ -204,7 +204,7 @@ func parseIdentities(raw []string) ([]runtime.Identity, error) {
 func endpointsForRuntime(rep *report.Report) []runtime.Endpoint {
 	eps := make([]runtime.Endpoint, 0, len(rep.Endpoints))
 	for _, e := range rep.Endpoints {
-		eps = append(eps, runtime.Endpoint{Method: e.Method, Path: e.Path, Roles: e.Roles})
+		eps = append(eps, runtime.Endpoint{Method: e.Method, Path: e.Path, Roles: e.Roles, SessionEndReason: e.SessionEndReason})
 	}
 	return eps
 }

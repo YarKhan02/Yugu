@@ -44,6 +44,11 @@ type Endpoint struct {
 	ResponseFields []string // JSON fields the handler serializes to the client
 	Unresolved     bool
 	Findings       []model.Finding
+	// SessionEndReason, when set, is why this endpoint terminates the caller's
+	// session (clears the auth cookie, or deletes the session row the auth path
+	// reads). Runtime testing skips it by default so it does not invalidate the
+	// credential the other scenarios run as.
+	SessionEndReason string
 }
 
 // MiddlewareRef is one middleware in an endpoint's chain, with the constant
@@ -112,10 +117,11 @@ func Build(project, scanID, schemaSource, generatedAt string,
 			continue
 		}
 		ep := &Endpoint{
-			Method:  method,
-			Path:    attrStr(f.Attrs, "pattern"),
-			Subject: f.Subject,
-			Handler: attrStr(f.Attrs, "handler"),
+			Method:           method,
+			Path:             attrStr(f.Attrs, "pattern"),
+			Subject:          f.Subject,
+			Handler:          attrStr(f.Attrs, "handler"),
+			SessionEndReason: attrStr(f.Attrs, "session_terminating"),
 		}
 		if len(f.Evidence.Source) > 0 {
 			ep.HandlerFile = f.Evidence.Source[0].File

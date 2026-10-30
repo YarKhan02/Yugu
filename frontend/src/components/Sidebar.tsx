@@ -1,12 +1,12 @@
 import {
   LayoutDashboard, Share2, Route, Database, ShieldAlert,
-  FlaskConical, History, GitCompare, Settings, Shield,
+  FlaskConical, History, GitCompare, Settings, Shield, Bug,
 } from "lucide-react";
 import type { Scan } from "../lib/types";
 
 export type View =
   | "overview" | "graph" | "endpoints" | "database" | "findings"
-  | "runtime" | "history" | "git" | "settings";
+  | "runtime" | "fuzz" | "history" | "git" | "settings";
 
 interface Item {
   id: View;
@@ -25,7 +25,8 @@ const primary: Item[] = [
 
 const verify: Item[] = [
   { id: "runtime", label: "Runtime Tests", icon: FlaskConical, ready: true },
-  { id: "history", label: "Scan History", icon: History, ready: false },
+  { id: "fuzz", label: "Fuzzing", icon: Bug, ready: true },
+  { id: "history", label: "Scan History", icon: History, ready: true },
   { id: "git", label: "Git Comparison", icon: GitCompare, ready: false },
   { id: "settings", label: "Settings", icon: Settings, ready: false },
 ];

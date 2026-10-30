@@ -9,6 +9,7 @@ const titles: Record<View, string> = {
   database: "Database",
   findings: "Findings",
   runtime: "Runtime Tests",
+  fuzz: "Fuzzing",
   history: "Scan History",
   git: "Git Comparison",
   settings: "Settings",

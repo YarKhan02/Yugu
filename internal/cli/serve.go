@@ -12,6 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/YarKhan02/PathWise/internal/fuzz"
+	"github.com/YarKhan02/PathWise/internal/model"
 	"github.com/YarKhan02/PathWise/internal/project"
 	"github.com/YarKhan02/PathWise/internal/report"
 	"github.com/YarKhan02/PathWise/internal/runtime"
@@ -101,7 +103,7 @@ func serveDashboard(ctx context.Context, out io.Writer, store *sqlite.Store, pro
 			for _, r := range run.Results {
 				tr.Results = append(tr.Results, server.RuntimeTest{
 					Method: r.Method, Path: r.Path, Endpoint: r.Endpoint(), Role: r.IdentityRole,
-					Expectation: r.Expectation, Outcome: r.Outcome, Status: r.StatusCode, Detail: r.Detail,
+					Expectation: r.Expectation, Outcome: r.Outcome, Status: r.StatusCode, Detail: r.Detail, Body: r.Body,
 				})
 			}
 			out = append(out, tr)
@@ -119,8 +121,9 @@ func serveDashboard(ctx context.Context, out io.Writer, store *sqlite.Store, pro
 	}
 
 	runner := runtimeRunner(store, scan, rep)
+	fuzzRun := fuzzRunner(store, scan, rep)
 
-	return server.Serve(ctx, addr, data, runner, historyFn, func(url string) {
+	return server.Serve(ctx, addr, data, runner, historyFn, fuzzRun, func(url string) {
 		fmt.Fprintf(out, "PathWise dashboard — %s\n", projectName)
 		fmt.Fprintf(out, "  %d endpoints · %d roles · %d tables · %d findings\n",
 			data.Counts.Endpoints, data.Counts.Roles, data.Counts.Tables, data.Counts.Findings)
@@ -165,7 +168,9 @@ func runtimeRunner(store *sqlite.Store, scan *sqlite.Scan, rep *report.Report) s
 				continue
 			}
 			eps = append(eps, e)
-			if !strings.EqualFold(e.Method, "GET") {
+			// A dashboard selection is itself the opt-in: a non-GET or a
+			// session-terminating endpoint the user explicitly picked is run.
+			if !strings.EqualFold(e.Method, "GET") || e.SessionEndReason != "" {
 				allowed[key] = true
 			}
 		}
@@ -179,6 +184,64 @@ func runtimeRunner(store *sqlite.Store, scan *sqlite.Scan, rep *report.Report) s
 			return nil, fmt.Errorf("record test results: %w", err)
 		}
 		return toRuntimeTests(results), nil
+	}
+}
+
+// fuzzRunner builds the dashboard's active-fuzz handler: it joins the scan's
+// stored request-schema facts with its routes, fuzzes the selected write
+// endpoints, persists the breaks against the scan, and returns them. The token
+// arrives in the request, is used in memory, and is never stored.
+func fuzzRunner(store *sqlite.Store, scan *sqlite.Scan, rep *report.Report) server.FuzzRunner {
+	return func(ctx context.Context, req server.FuzzRequest) ([]server.FuzzFinding, error) {
+		if strings.TrimSpace(req.BaseURL) == "" {
+			return nil, fmt.Errorf("base URL is required: point it at the running application")
+		}
+
+		facts, err := store.FactsByKind(ctx, scan.ID, model.FactRequestSchema)
+		if err != nil {
+			return nil, fmt.Errorf("read request schemas: %w", err)
+		}
+		fieldsBySubject := make(map[string][]fuzz.Field, len(facts))
+		for _, f := range facts {
+			fieldsBySubject[f.Subject] = fuzz.FieldsFromFact(f)
+		}
+
+		// Pass every endpoint so read-back GETs are available for pairing; the
+		// Selected set limits which writes are actually fuzzed.
+		var eps []fuzz.Endpoint
+		for _, e := range endpointsForRuntime(rep) {
+			eps = append(eps, fuzz.Endpoint{
+				Method: e.Method, Path: e.Path,
+				Fields: fieldsBySubject[runtime.Key(e.Method, e.Path)],
+			})
+		}
+
+		selected := make(map[string]bool, len(req.Endpoints))
+		for _, k := range req.Endpoints {
+			selected[k] = true
+		}
+
+		// A chosen model layers Ollama-generated adversarial values over the
+		// deterministic payloads; an empty model keeps the run deterministic.
+		var mutator fuzz.Mutator
+		if m := strings.TrimSpace(req.Model); m != "" {
+			mutator = fuzz.NewOllamaMutator(m)
+		}
+
+		breaks := fuzz.Run(ctx, fuzz.NewClient(req.BaseURL), fuzz.RunConfig{
+			Endpoints: eps, Token: strings.TrimSpace(req.Token), Selected: selected, Mutator: mutator,
+		})
+
+		stored := make([]sqlite.FuzzBreak, len(breaks))
+		out := make([]server.FuzzFinding, len(breaks))
+		for i, b := range breaks {
+			stored[i] = sqlite.FuzzBreak{Endpoint: b.Endpoint, Kind: string(b.Kind), Payload: b.Payload, Detail: b.Detail}
+			out[i] = server.FuzzFinding{Endpoint: b.Endpoint, Kind: string(b.Kind), Payload: b.Payload, Detail: b.Detail}
+		}
+		if _, err := store.InsertFuzzResults(ctx, scan.ID, stored); err != nil {
+			return nil, fmt.Errorf("record fuzz results: %w", err)
+		}
+		return out, nil
 	}
 }
 

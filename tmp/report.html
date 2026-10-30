@@ -56,10 +56,10 @@ tr:last-child td{border-bottom:none}
 <body>
 <div class="wrap">
   <h1>PathWise — AcademyEngine</h1>
-  <div class="sub">scan scan_1792107340724_ea2f55e6699f7ee7 · schema live · generated 2026-10-15 23:35 UTC</div>
+  <div class="sub">scan scan_1792283470861_7a59d20936041702 · schema live · generated 2026-10-18 00:31 UTC</div>
 
   <div class="stats">
-    <div class="stat"><b>198</b><span>endpoints</span></div>
+    <div class="stat"><b>199</b><span>endpoints</span></div>
     <div class="stat"><b>5</b><span>roles</span></div>
     <div class="stat"><b>47</b><span>tables</span></div>
     <div class="stat"><b>0</b><span>findings</span></div>
@@ -193,12 +193,12 @@ tr:last-child td{border-bottom:none}
         </td>
       </tr>
     
-      <tr data-roles="admin" data-text="delete /dashboard/subjects/{id} teacher.deletesubject subjects admin">
+      <tr data-roles="admin" data-text="delete /dashboard/subjects/{id} teacher.deletesubject levels subjects admin">
         <td><span class="method m-delete">DELETE</span></td>
         <td><span class="path">/dashboard/subjects/{id}</span><span class="handler">teacher.DeleteSubject</span></td>
         <td><span class="chip role">admin</span></td>
         <td>
-          <span class="chip">subjects <span class="ops">DELETE</span></span>
+          <span class="chip">levels <span class="ops">DELETE</span></span><span class="chip">subjects <span class="ops">DELETE</span></span>
           
         </td>
         <td class="hide-sm">
@@ -1019,12 +1019,12 @@ tr:last-child td{border-bottom:none}
         </td>
       </tr>
     
-      <tr data-roles="public" data-text="get /live/my/batch/{batchid}/courses liveclass.mybatchcourses course student_batches student_course_access students teacher_batches teacher_courses users">
+      <tr data-roles="public" data-text="get /live/my/batch/{batchid}/courses liveclass.mybatchcourses course student_batches student_course_access students users">
         <td><span class="method m-get">GET</span></td>
         <td><span class="path">/live/my/batch/{batchId}/courses</span><span class="handler">liveclass.MyBatchCourses</span></td>
         <td><span class="chip role">public</span></td>
         <td>
-          <span class="chip">course <span class="ops">SELECT</span></span><span class="chip">student_batches <span class="ops">SELECT</span></span><span class="chip">student_course_access <span class="ops">SELECT</span></span><span class="chip">students <span class="ops">SELECT</span></span><span class="chip">teacher_batches <span class="ops">SELECT</span></span><span class="chip">teacher_courses <span class="ops">SELECT</span></span><span class="chip">users <span class="ops">SELECT</span></span>
+          <span class="chip">course <span class="ops">SELECT</span></span><span class="chip">student_batches <span class="ops">SELECT</span></span><span class="chip">student_course_access <span class="ops">SELECT</span></span><span class="chip">students <span class="ops">SELECT</span></span><span class="chip">users <span class="ops">SELECT</span></span>
           
         </td>
         <td class="hide-sm">
@@ -1523,12 +1523,12 @@ tr:last-child td{border-bottom:none}
         </td>
       </tr>
     
-      <tr data-roles="admin" data-text="patch /course/lessons/{lessonid}/reorder course.reorderlesson lesson admin">
+      <tr data-roles="admin" data-text="patch /course/lessons/{lessonid}/reorder course.reorderlesson course lesson admin">
         <td><span class="method m-patch">PATCH</span></td>
         <td><span class="path">/course/lessons/{lessonId}/reorder</span><span class="handler">course.ReorderLesson</span></td>
         <td><span class="chip role">admin</span></td>
         <td>
-          <span class="chip">lesson <span class="ops">SELECT,UPDATE</span></span>
+          <span class="chip">course <span class="ops">SELECT</span></span><span class="chip">lesson <span class="ops">SELECT,UPDATE</span></span>
           
         </td>
         <td class="hide-sm">
@@ -1598,7 +1598,7 @@ tr:last-child td{border-bottom:none}
         <td><span class="path">/dashboard/academy</span><span class="handler">academy.UpdateBranding</span></td>
         <td><span class="chip role">admin</span></td>
         <td>
-          <span class="chip">academies <span class="ops">SELECT,UPDATE</span></span>
+          <span class="chip">academies <span class="ops">UPDATE</span></span>
           
         </td>
         <td class="hide-sm">
@@ -1775,12 +1775,12 @@ tr:last-child td{border-bottom:none}
         </td>
       </tr>
     
-      <tr data-roles="teacher" data-text="patch /teacher/courses/{courseid}/lessons/{lessonid}/reorder course.reorderlesson lesson teacher">
+      <tr data-roles="teacher" data-text="patch /teacher/courses/{courseid}/lessons/{lessonid}/reorder course.reorderlesson course lesson teacher">
         <td><span class="method m-patch">PATCH</span></td>
         <td><span class="path">/teacher/courses/{courseId}/lessons/{lessonId}/reorder</span><span class="handler">course.ReorderLesson</span></td>
         <td><span class="chip role">teacher</span></td>
         <td>
-          <span class="chip">lesson <span class="ops">SELECT,UPDATE</span></span>
+          <span class="chip">course <span class="ops">SELECT</span></span><span class="chip">lesson <span class="ops">SELECT,UPDATE</span></span>
           
         </td>
         <td class="hide-sm">
@@ -1988,6 +1988,20 @@ tr:last-child td{border-bottom:none}
       <tr data-roles="admin" data-text="post /attachment/a/inline attachement.uploadinlineimage academy_usage attachments plans subscriptions admin">
         <td><span class="method m-post">POST</span></td>
         <td><span class="path">/attachment/a/inline</span><span class="handler">attachement.UploadInlineImage</span></td>
+        <td><span class="chip role">admin</span></td>
+        <td>
+          <span class="chip">academy_usage <span class="ops">INSERT,SELECT,UPDATE</span></span><span class="chip">attachments <span class="ops">INSERT</span></span><span class="chip">plans <span class="ops">SELECT</span></span><span class="chip">subscriptions <span class="ops">SELECT</span></span>
+          
+        </td>
+        <td class="hide-sm">
+          
+          
+        </td>
+      </tr>
+    
+      <tr data-roles="admin" data-text="post /attachment/a/logo attachement.uploadlogoimage academy_usage attachments plans subscriptions admin">
+        <td><span class="method m-post">POST</span></td>
+        <td><span class="path">/attachment/a/logo</span><span class="handler">attachement.UploadLogoImage</span></td>
         <td><span class="chip role">admin</span></td>
         <td>
           <span class="chip">academy_usage <span class="ops">INSERT,SELECT,UPDATE</span></span><span class="chip">attachments <span class="ops">INSERT</span></span><span class="chip">plans <span class="ops">SELECT</span></span><span class="chip">subscriptions <span class="ops">SELECT</span></span>
@@ -2293,12 +2307,12 @@ tr:last-child td{border-bottom:none}
         </td>
       </tr>
     
-      <tr data-roles="admin" data-text="post /course course.insertcourse academies batches course plans role student_batches students subscriptions teachers user_role users admin">
+      <tr data-roles="admin" data-text="post /course course.insertcourse course admin">
         <td><span class="method m-post">POST</span></td>
         <td><span class="path">/course</span><span class="handler">course.InsertCourse</span></td>
         <td><span class="chip role">admin</span></td>
         <td>
-          <span class="chip">academies <span class="ops">SELECT</span></span><span class="chip">batches <span class="ops">SELECT</span></span><span class="chip">course <span class="ops">INSERT,SELECT</span></span><span class="chip">plans <span class="ops">SELECT</span></span><span class="chip">role <span class="ops">SELECT</span></span><span class="chip">student_batches <span class="ops">INSERT</span></span><span class="chip">students <span class="ops">INSERT,SELECT</span></span><span class="chip">subscriptions <span class="ops">SELECT</span></span><span class="chip">teachers <span class="ops">INSERT,SELECT</span></span><span class="chip">user_role <span class="ops">INSERT,SELECT</span></span><span class="chip">users <span class="ops">INSERT,SELECT</span></span>
+          <span class="chip">course <span class="ops">INSERT</span></span>
           
         </td>
         <td class="hide-sm">
@@ -2377,12 +2391,12 @@ tr:last-child td{border-bottom:none}
         </td>
       </tr>
     
-      <tr data-roles="admin" data-text="post /dashboard/staff user.createstaff academies batches course plans role student_batches students subscriptions teachers user_role users admin">
+      <tr data-roles="admin" data-text="post /dashboard/staff user.createstaff user_role users admin">
         <td><span class="method m-post">POST</span></td>
         <td><span class="path">/dashboard/staff</span><span class="handler">user.CreateStaff</span></td>
         <td><span class="chip role">admin</span></td>
         <td>
-          <span class="chip">academies <span class="ops">SELECT</span></span><span class="chip">batches <span class="ops">SELECT</span></span><span class="chip">course <span class="ops">INSERT,SELECT</span></span><span class="chip">plans <span class="ops">SELECT</span></span><span class="chip">role <span class="ops">SELECT</span></span><span class="chip">student_batches <span class="ops">INSERT</span></span><span class="chip">students <span class="ops">INSERT,SELECT</span></span><span class="chip">subscriptions <span class="ops">SELECT</span></span><span class="chip">teachers <span class="ops">INSERT,SELECT</span></span><span class="chip">user_role <span class="ops">INSERT,SELECT</span></span><span class="chip">users <span class="ops">INSERT,SELECT</span></span>
+          <span class="chip">user_role <span class="ops">INSERT</span></span><span class="chip">users <span class="ops">INSERT</span></span>
           
         </td>
         <td class="hide-sm">
@@ -2419,12 +2433,12 @@ tr:last-child td{border-bottom:none}
         </td>
       </tr>
     
-      <tr data-roles="admin" data-text="post /dashboard/teachers teacher.createteacher academies batches course plans role student_batches students subscriptions teachers user_role users admin">
+      <tr data-roles="admin" data-text="post /dashboard/teachers teacher.createteacher teachers user_role users admin">
         <td><span class="method m-post">POST</span></td>
         <td><span class="path">/dashboard/teachers</span><span class="handler">teacher.CreateTeacher</span></td>
         <td><span class="chip role">admin</span></td>
         <td>
-          <span class="chip">academies <span class="ops">SELECT</span></span><span class="chip">batches <span class="ops">SELECT</span></span><span class="chip">course <span class="ops">INSERT,SELECT</span></span><span class="chip">plans <span class="ops">SELECT</span></span><span class="chip">role <span class="ops">SELECT</span></span><span class="chip">student_batches <span class="ops">INSERT</span></span><span class="chip">students <span class="ops">INSERT,SELECT</span></span><span class="chip">subscriptions <span class="ops">SELECT</span></span><span class="chip">teachers <span class="ops">INSERT,SELECT</span></span><span class="chip">user_role <span class="ops">INSERT,SELECT</span></span><span class="chip">users <span class="ops">INSERT,SELECT</span></span>
+          <span class="chip">teachers <span class="ops">INSERT</span></span><span class="chip">user_role <span class="ops">INSERT</span></span><span class="chip">users <span class="ops">INSERT</span></span>
           
         </td>
         <td class="hide-sm">
@@ -2755,12 +2769,12 @@ tr:last-child td{border-bottom:none}
         </td>
       </tr>
     
-      <tr data-roles="admin" data-text="put /dashboard/teachers/{id}/batches teacher.setbatches admin">
+      <tr data-roles="admin" data-text="put /dashboard/teachers/{id}/batches teacher.setbatches teachers users admin">
         <td><span class="method m-put">PUT</span></td>
         <td><span class="path">/dashboard/teachers/{id}/batches</span><span class="handler">teacher.SetBatches</span></td>
         <td><span class="chip role">admin</span></td>
         <td>
-          
+          <span class="chip">teachers <span class="ops">SELECT</span></span><span class="chip">users <span class="ops">SELECT</span></span>
           
         </td>
         <td class="hide-sm">
@@ -2769,12 +2783,12 @@ tr:last-child td{border-bottom:none}
         </td>
       </tr>
     
-      <tr data-roles="admin" data-text="put /dashboard/teachers/{id}/courses teacher.setcourses admin">
+      <tr data-roles="admin" data-text="put /dashboard/teachers/{id}/courses teacher.setcourses teachers users admin">
         <td><span class="method m-put">PUT</span></td>
         <td><span class="path">/dashboard/teachers/{id}/courses</span><span class="handler">teacher.SetCourses</span></td>
         <td><span class="chip role">admin</span></td>
         <td>
-          
+          <span class="chip">teachers <span class="ops">SELECT</span></span><span class="chip">users <span class="ops">SELECT</span></span>
           
         </td>
         <td class="hide-sm">

@@ -48,7 +48,18 @@ function EndpointInspector({ ep, scan, onClose }: { ep: Endpoint; scan: Scan; on
           <span className="v mono">{ep.handler || "—"}{ep.handlerFile ? `  (${loc(ep.handlerFile, ep.handlerLine)})` : ""}</span>
         </div>
       </div>
+      <EndpointDetail ep={ep} scan={scan} />
+    </div>
+  );
+}
 
+// EndpointDetail is the static evidence for one endpoint — authorization path,
+// roles & gates, data access, response fields and findings — without the panel
+// header. It is shared by the graph Inspector and the Scan History drawer so the
+// two show the same static conclusions for an endpoint.
+export function EndpointDetail({ ep, scan }: { ep: Endpoint; scan: Scan }) {
+  return (
+    <>
       <section className="isec">
         <h3>Authorization path</h3>
         <div className="trace">
@@ -144,7 +155,7 @@ function EndpointInspector({ ep, scan, onClose }: { ep: Endpoint; scan: Scan; on
           </div>
         ))}
       </section>
-    </div>
+    </>
   );
 }
 

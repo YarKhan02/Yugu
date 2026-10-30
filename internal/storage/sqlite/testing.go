@@ -23,6 +23,10 @@ type TestResult struct {
 	Outcome      string // pass | fail | blocked | unverified | divergent
 	StatusCode   int    // 0 when the scenario was not executed
 	Detail       string // the human-readable reason for the outcome
+	// Body is a capped (8 KiB) preview of the response the app returned — the
+	// data a real caller would see. It is the app's own output, not a credential;
+	// request tokens are never captured here. Stored in test_runs.response_meta.
+	Body string
 }
 
 // Endpoint is the stable METHOD /path identity used as the scenario key.
@@ -87,8 +91,14 @@ func (s *Store) InsertTestResults(ctx context.Context, scanID string, results []
 		if r.StatusCode > 0 {
 			status = r.StatusCode
 		}
+		meta := "{}"
+		if r.Body != "" {
+			if b, err := json.Marshal(map[string]string{"body": r.Body}); err == nil {
+				meta = string(b)
+			}
+		}
 		if _, err := insRun.ExecContext(ctx,
-			newID("run"), scenarioID, string(request), status, "{}",
+			newID("run"), scenarioID, string(request), status, meta,
 			r.Outcome, r.Detail, "", now); err != nil {
 			return written, fmt.Errorf("insert run %s: %w", r.Endpoint(), err)
 		}
@@ -108,7 +118,7 @@ func (s *Store) InsertTestResults(ctx context.Context, scanID string, results []
 func (s *Store) LatestTestResults(ctx context.Context, scanID string) ([]StoredTestResult, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT ts.endpoint, ts.identity_ref, ts.expectation, ts.safety_class,
-		        tr.status_code, tr.outcome, tr.limitation, tr.executed_at
+		        tr.status_code, tr.outcome, tr.limitation, tr.executed_at, tr.response_meta
 		 FROM test_runs tr
 		 JOIN test_scenarios ts ON tr.scenario_id = ts.id
 		 WHERE ts.scan_id = ?
@@ -126,16 +136,17 @@ func (s *Store) LatestTestResults(ctx context.Context, scanID string) ([]StoredT
 	var out []StoredTestResult
 	for rows.Next() {
 		var (
-			r        StoredTestResult
-			endpoint string
-			status   sql.NullInt64
+			r              StoredTestResult
+			endpoint, meta string
+			status         sql.NullInt64
 		)
 		if err := rows.Scan(&endpoint, &r.IdentityRole, &r.Expectation, &r.SafetyClass,
-			&status, &r.Outcome, &r.Detail, &r.ExecutedAt); err != nil {
+			&status, &r.Outcome, &r.Detail, &r.ExecutedAt, &meta); err != nil {
 			return nil, err
 		}
 		r.ScanID = scanID
 		r.Method, r.Path = splitEndpoint(endpoint)
+		r.Body = bodyFromMeta(meta)
 		if status.Valid {
 			r.StatusCode = int(status.Int64)
 		}
@@ -155,13 +166,13 @@ type StoredRun struct {
 
 // AllTestRuns returns every runtime run recorded for a project, newest first,
 // each grouped into its batch. Runs are append-only, so this is the full history
-// across every scan of the checkout — a re-scan never drops earlier runs. Bodies
-// are never stored, so none appear here.
+// across every scan of the checkout — a re-scan never drops earlier runs. The
+// capped response-body preview is included so a result can be investigated.
 func (s *Store) AllTestRuns(ctx context.Context, projectID string) ([]StoredRun, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT ts.scan_id, tr.executed_at, sc.git_revision,
 		        ts.endpoint, ts.identity_ref, ts.expectation, ts.safety_class,
-		        tr.status_code, tr.outcome, tr.limitation
+		        tr.status_code, tr.outcome, tr.limitation, tr.response_meta
 		 FROM test_runs tr
 		 JOIN test_scenarios ts ON tr.scenario_id = ts.id
 		 JOIN scans sc ON ts.scan_id = sc.id
@@ -176,17 +187,18 @@ func (s *Store) AllTestRuns(ctx context.Context, projectID string) ([]StoredRun,
 	var out []StoredRun
 	for rows.Next() {
 		var (
-			scanID, executedAt, rev, endpoint string
-			r                                 StoredTestResult
-			status                            sql.NullInt64
+			scanID, executedAt, rev, endpoint, meta string
+			r                                       StoredTestResult
+			status                                  sql.NullInt64
 		)
 		if err := rows.Scan(&scanID, &executedAt, &rev, &endpoint, &r.IdentityRole,
-			&r.Expectation, &r.SafetyClass, &status, &r.Outcome, &r.Detail); err != nil {
+			&r.Expectation, &r.SafetyClass, &status, &r.Outcome, &r.Detail, &meta); err != nil {
 			return nil, err
 		}
 		r.ScanID = scanID
 		r.ExecutedAt = executedAt
 		r.Method, r.Path = splitEndpoint(endpoint)
+		r.Body = bodyFromMeta(meta)
 		if status.Valid {
 			r.StatusCode = int(status.Int64)
 		}
@@ -198,6 +210,21 @@ func (s *Store) AllTestRuns(ctx context.Context, projectID string) ([]StoredRun,
 		out[len(out)-1].Results = append(out[len(out)-1].Results, r)
 	}
 	return out, rows.Err()
+}
+
+// bodyFromMeta reads the capped response-body preview out of a test_runs
+// response_meta JSON blob, or "" when none was stored.
+func bodyFromMeta(meta string) string {
+	if meta == "" || meta == "{}" {
+		return ""
+	}
+	var m struct {
+		Body string `json:"body"`
+	}
+	if err := json.Unmarshal([]byte(meta), &m); err != nil {
+		return ""
+	}
+	return m.Body
 }
 
 // splitEndpoint reverses TestResult.Endpoint ("METHOD /path").

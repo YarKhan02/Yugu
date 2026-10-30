@@ -59,6 +59,9 @@ export interface Endpoint {
   responseFields: string[];
   unresolved: boolean;
   findings: Finding[];
+  // Why this endpoint ends the caller's session (a logout and the like). When
+  // set, it is left unticked by default so a test run does not log the token out.
+  sessionEndReason?: string;
 }
 
 export interface ColumnInfo {
@@ -97,6 +100,15 @@ export interface RuntimeTest {
   status?: number;
   detail: string;
   body?: string;
+}
+
+// FuzzFinding mirrors the /api/fuzz response (server.FuzzFinding): one
+// behavioral break the active fuzzer observed. It carries no response body.
+export interface FuzzFinding {
+  endpoint: string;
+  kind: string;
+  payload: string;
+  detail: string;
 }
 
 export interface TestRun {

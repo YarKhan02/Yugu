@@ -54,8 +54,9 @@ type RuntimeTest struct {
 	Outcome     string `json:"outcome"`     // pass | fail | blocked | unverified | divergent
 	Status      int    `json:"status,omitempty"`
 	Detail      string `json:"detail"`
-	// Body is the live response preview; present only for a run just executed
-	// through the dashboard, never for a run read back from the store.
+	// Body is a capped (8 KiB) preview of the response the app returned — the
+	// data a real caller would see. Stored with the run, so it is present both for
+	// a run just executed and for one read back from the store.
 	Body string `json:"body,omitempty"`
 }
 
@@ -84,6 +85,10 @@ type Endpoint struct {
 	ResponseFields []string        `json:"responseFields"`
 	Unresolved     bool            `json:"unresolved"`
 	Findings       []model.Finding `json:"findings"`
+	// SessionEndReason, when set, is why this endpoint terminates the caller's
+	// session. Runtime testing leaves it off by default so it does not invalidate
+	// the credential every other scenario runs as.
+	SessionEndReason string `json:"sessionEndReason,omitempty"`
 }
 
 // Middleware is one gate in an endpoint's chain; Args carries string literals
@@ -165,8 +170,9 @@ func BuildScan(r *report.Report) Scan {
 			HandlerFile: e.HandlerFile, HandlerLine: e.HandlerLine,
 			Roles: nonNil(e.Roles), Unresolved: e.Unresolved,
 			Middleware: []Middleware{}, Checks: []Check{}, Tables: []TableRef{},
-			ResponseFields: nonNil(e.ResponseFields),
-			Findings:       nonNilFindings(e.Findings),
+			ResponseFields:   nonNil(e.ResponseFields),
+			Findings:         nonNilFindings(e.Findings),
+			SessionEndReason: e.SessionEndReason,
 		}
 		for _, m := range e.Middleware {
 			ep.Middleware = append(ep.Middleware, Middleware{Name: m.Name, Args: m.Args})

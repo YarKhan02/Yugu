@@ -9,6 +9,7 @@ import { Database } from "./views/Database";
 import { Findings } from "./views/Findings";
 import { AccessGraph } from "./views/AccessGraph";
 import { RuntimeTests } from "./views/RuntimeTests";
+import { Fuzz } from "./views/Fuzz";
 import { ScanHistory } from "./views/ScanHistory";
 import { Unavailable } from "./views/Unavailable";
 
@@ -56,6 +57,7 @@ export default function App() {
       case "database": return <Database scan={scan} query={query} selection={selection} onSelect={setSelection} />;
       case "findings": return <Findings scan={scan} query={query} go={go} />;
       case "runtime": return <RuntimeTests scan={scan} go={go} />;
+      case "fuzz": return <Fuzz scan={scan} />;
       case "history": return <ScanHistory scan={scan} go={go} />;
       case "git": return <Unavailable title="Git comparison" reason="Diffing authorization between two revisions is Phase 7 and needs at least two stored scans." />;
       case "settings": return <Unavailable title="Settings" reason="There is nothing to configure here yet." />;

@@ -21,6 +21,7 @@ import (
 	"go/token"
 	"go/types"
 	"path"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -716,6 +717,185 @@ func ResponseBody(call *ssa.Call) (ssa.Value, bool) {
 		return call.Call.Args[2], true
 	}
 	return nil, false
+}
+
+// --- request schema --------------------------------------------------------
+
+// RequestField is one input a handler reads from the incoming request: a body
+// field decoded by a Bind call, or a query/path parameter read by key.
+type RequestField struct {
+	Name     string // json field name, query key, or path-parameter name
+	In       string // "body", "query", or "path"
+	GoType   string // the field's Go type, e.g. "string", "int", "*time.Time"
+	Required bool   // a body field carrying a binding:"required" tag
+}
+
+// RequestSchema is the set of request inputs one handler consumes, recovered by
+// walking its SSA for *gin.Context accessors. It is the raw material for payload
+// generation: the fuzzer needs the shape of a valid request before it can craft
+// an invalid one. Unknown records parts of the shape that could not be resolved
+// (a bind into a non-struct, a non-constant parameter key) so that a gap is
+// never mistaken for "this endpoint takes no input".
+type RequestSchema struct {
+	Fields  []RequestField
+	Unknown []string
+}
+
+// bodyBindMethods are the *gin.Context methods that decode the request body
+// into the struct passed as their argument.
+var bodyBindMethods = map[string]bool{
+	"Bind": true, "BindJSON": true, "BindXML": true, "BindYAML": true,
+	"BindTOML": true, "ShouldBind": true, "ShouldBindJSON": true,
+	"ShouldBindXML": true, "ShouldBindYAML": true, "ShouldBindTOML": true,
+}
+
+// paramReadMethods map a *gin.Context accessor to the kind of parameter it
+// reads by key — a path segment or a query-string value.
+var paramReadMethods = map[string]string{
+	"Param": "path", "Query": "query", "DefaultQuery": "query",
+	"GetQuery": "query", "PostForm": "query",
+}
+
+// HandlerSchema walks a handler's SSA for the request inputs it reads. fn may be
+// nil (an unresolved handler), in which case the schema is empty.
+func HandlerSchema(fn *ssa.Function) RequestSchema {
+	var s RequestSchema
+	if fn == nil {
+		return s
+	}
+	seen := map[string]bool{} // a field read on several blocks is one field
+	add := func(f RequestField) {
+		k := f.In + "\x00" + f.Name
+		if seen[k] {
+			return
+		}
+		seen[k] = true
+		s.Fields = append(s.Fields, f)
+	}
+	for _, b := range fn.Blocks {
+		for _, instr := range b.Instrs {
+			call, ok := instr.(*ssa.Call)
+			if !ok {
+				continue
+			}
+			name, ok := contextMethod(call)
+			if !ok {
+				continue
+			}
+			switch {
+			case bodyBindMethods[name]:
+				if len(call.Call.Args) < 2 {
+					continue
+				}
+				fields, ok := bindStructFields(call.Call.Args[1])
+				if !ok {
+					s.Unknown = append(s.Unknown, "bind target of c."+name+" is not a resolvable struct")
+					continue
+				}
+				for _, f := range fields {
+					add(f)
+				}
+			case paramReadMethods[name] != "":
+				if len(call.Call.Args) < 2 {
+					continue
+				}
+				key, ok := constString(call.Call.Args[1])
+				if !ok {
+					s.Unknown = append(s.Unknown, "non-constant key passed to c."+name)
+					continue
+				}
+				add(RequestField{Name: key, In: paramReadMethods[name], GoType: "string"})
+			}
+		}
+	}
+	return s
+}
+
+// contextMethod reports the method name when call is a method call on a
+// *gin.Context. It mirrors the receiver guard ResponseBody uses.
+func contextMethod(call *ssa.Call) (string, bool) {
+	callee := call.Call.StaticCallee()
+	if callee == nil || callee.Pkg == nil || callee.Pkg.Pkg == nil {
+		return "", false
+	}
+	if callee.Pkg.Pkg.Path() != ginPkgPath {
+		return "", false
+	}
+	recv := callee.Signature.Recv()
+	if recv == nil || !isNamedPtr(recv.Type(), "Context") {
+		return "", false
+	}
+	return callee.Name(), true
+}
+
+// bindStructFields resolves the struct a bind argument points at and returns one
+// RequestField per exported field. The argument arrives boxed in an interface
+// (the Bind methods take any), so the MakeInterface is peeled first.
+//
+// shortcut: only top-level fields are recorded; a nested struct becomes one
+// field of struct type rather than being flattened. Revisit when the fuzzer
+// needs to mutate nested bodies.
+func bindStructFields(arg ssa.Value) ([]RequestField, bool) {
+	if mi, ok := arg.(*ssa.MakeInterface); ok {
+		arg = mi.X
+	}
+	t := arg.Type()
+	if p, ok := t.(*types.Pointer); ok {
+		t = p.Elem()
+	}
+	st, ok := t.Underlying().(*types.Struct)
+	if !ok {
+		return nil, false
+	}
+	var out []RequestField
+	for i := 0; i < st.NumFields(); i++ {
+		f := st.Field(i)
+		if !f.Exported() {
+			continue
+		}
+		tag := reflect.StructTag(st.Tag(i))
+		name, skip := jsonFieldName(f, tag)
+		if skip {
+			continue
+		}
+		out = append(out, RequestField{
+			Name:     name,
+			In:       "body",
+			GoType:   f.Type().String(),
+			Required: bindingRequired(tag),
+		})
+	}
+	return out, true
+}
+
+// jsonFieldName returns the wire name of a struct field: its json tag when set,
+// otherwise the Go field name. A json:"-" field is skipped.
+func jsonFieldName(f *types.Var, tag reflect.StructTag) (name string, skip bool) {
+	j := tag.Get("json")
+	if j == "" {
+		return f.Name(), false
+	}
+	if i := strings.IndexByte(j, ','); i >= 0 {
+		j = j[:i]
+	}
+	switch j {
+	case "-":
+		return "", true
+	case "":
+		return f.Name(), false
+	default:
+		return j, false
+	}
+}
+
+// bindingRequired reports whether a gin binding tag marks the field required.
+func bindingRequired(tag reflect.StructTag) bool {
+	for _, part := range strings.Split(tag.Get("binding"), ",") {
+		if part == "required" {
+			return true
+		}
+	}
+	return false
 }
 
 // isGinConstructor reports whether fn is gin.New or gin.Default, the package

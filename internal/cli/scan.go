@@ -375,10 +375,14 @@ func analyzeCode(scanID, root string, cfg *config.Config, keyCols map[string]map
 	cg := analyzer.BuildCallGraph(loaded.Prog)
 	funcs := analyzer.FunctionsByName(loaded.Prog)
 
+	ca.facts = append(ca.facts, ginadapter.SchemaFacts(scanID, res.Routes, funcs)...)
+
 	access, _ := analyzeDataAccess(loaded.Prog, cg, funcs, res.Routes, embeds)
 	accessFacts, accessSummary := dataAccessFacts(scanID, res.Routes, access)
 	ca.facts = append(ca.facts, accessFacts...)
 	ca.accessSummary = accessSummary
+
+	markSessionTerminating(ca.facts, loaded.Prog, cg, funcs, res.Routes, embeds)
 
 	authFacts, found, authSummary := analyzeFindings(scanID, loaded.Prog, cg, res.Routes, funcs, access, embeds, keyCols, schemaConfirmed, cfg)
 	ca.facts = append(ca.facts, authFacts...)
@@ -475,6 +479,32 @@ func analyzeFindings(scanID string, prog *ssa.Program, cg *callgraph.Graph, rout
 
 	summary = fmt.Sprintf("%d check(s) examined, %d finding(s)", examined, len(found))
 	return facts, found, summary
+}
+
+// markSessionTerminating tags route facts whose endpoint ends the caller's
+// session (a logout and the like), so runtime testing skips them by default.
+// The reason is carried on the route fact and surfaces as the skip message;
+// opt in to test one anyway with `--allow "METHOD /path"`.
+func markSessionTerminating(facts []model.Fact, prog *ssa.Program, cg *callgraph.Graph, funcs map[string]*ssa.Function, routes []ginadapter.Route, embeds analyzer.EmbedIndex) {
+	reason := map[string]string{}
+	for _, r := range routes {
+		var mw []*ssa.Function
+		for _, name := range r.MiddlewareNames() {
+			if fn := funcs[name]; fn != nil {
+				mw = append(mw, fn)
+			}
+		}
+		if why, ok := analyzer.SessionTerminating(prog, cg, funcs[r.Handler], mw, embeds); ok {
+			reason[r.Subject()] = why
+		}
+	}
+	for i := range facts {
+		if facts[i].Kind == model.FactRoute && facts[i].Attrs != nil {
+			if why := reason[facts[i].Subject]; why != "" {
+				facts[i].Attrs["session_terminating"] = why
+			}
+		}
+	}
 }
 
 // roleCheckFinding builds the finding for an authorization check that runs but

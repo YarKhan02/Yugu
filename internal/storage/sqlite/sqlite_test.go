@@ -223,7 +223,8 @@ func TestTestResultsRoundTripAndLatest(t *testing.T) {
 	// A later run with a single result must become the whole "latest" picture.
 	second := []TestResult{
 		{Method: "GET", Path: "/dashboard", IdentityRole: "admin",
-			Expectation: "allowed", SafetyClass: "allow", Outcome: "pass", StatusCode: 200, Detail: "reachable"},
+			Expectation: "allowed", SafetyClass: "allow", Outcome: "pass", StatusCode: 200, Detail: "reachable",
+			Body: `{"ok":true}`},
 	}
 	if _, err := s.InsertTestResults(ctx, scan.ID, second); err != nil {
 		t.Fatalf("insert second batch: %v", err)
@@ -240,7 +241,103 @@ func TestTestResultsRoundTripAndLatest(t *testing.T) {
 	if r.Method != "GET" || r.Path != "/dashboard" || r.Outcome != "pass" || r.StatusCode != 200 {
 		t.Errorf("latest result did not round trip: %+v", r)
 	}
+	if r.Body != `{"ok":true}` {
+		t.Errorf("response body did not round trip: got %q", r.Body)
+	}
 	if r.ScanID != scan.ID {
 		t.Errorf("scan id = %q, want %q", r.ScanID, scan.ID)
+	}
+}
+
+func TestFuzzResultsRoundTripAndLatest(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	proj, _ := s.UpsertProject(ctx, "app", "/src/app", "example.com/app")
+	scan, _ := s.BeginScan(ctx, proj.ID, "abc", false, "0.1.0", SchemaLive, nil)
+
+	first := []FuzzBreak{
+		{Endpoint: "POST /assignments", Kind: "write_read_inconsistency", Payload: "missing:title", Detail: "accepted, read failed"},
+		{Endpoint: "POST /assignments", Kind: "endpoint_crash", Payload: "wrongType:count", Detail: "500 reproduced"},
+	}
+	if _, err := s.InsertFuzzResults(ctx, scan.ID, first); err != nil {
+		t.Fatalf("insert first batch: %v", err)
+	}
+
+	// A later run becomes the whole "latest" picture, not merged with the first.
+	second := []FuzzBreak{
+		{Endpoint: "PATCH /lessons/{id}", Kind: "write_not_persisted", Payload: "baseline", Detail: "not reflected on read-back"},
+	}
+	if _, err := s.InsertFuzzResults(ctx, scan.ID, second); err != nil {
+		t.Fatalf("insert second batch: %v", err)
+	}
+
+	got, err := s.LatestFuzzResults(ctx, scan.ID)
+	if err != nil {
+		t.Fatalf("read latest: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("latest run should be the 1 newest break, got %d", len(got))
+	}
+	b := got[0]
+	if b.Endpoint != "PATCH /lessons/{id}" || b.Kind != "write_not_persisted" || b.Payload != "baseline" {
+		t.Errorf("fuzz break did not round trip: %+v", b)
+	}
+	if b.ScanID != scan.ID || b.ExecutedAt == "" {
+		t.Errorf("scan id / executed_at not set: %+v", b)
+	}
+}
+
+// TestInsertFuzzResultsEmpty is the negative control: a clean run (no breaks)
+// writes nothing and reads back as no breaks, never an error.
+func TestInsertFuzzResultsEmpty(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	proj, _ := s.UpsertProject(ctx, "app", "/src/app", "example.com/app")
+	scan, _ := s.BeginScan(ctx, proj.ID, "abc", false, "0.1.0", SchemaLive, nil)
+
+	if n, err := s.InsertFuzzResults(ctx, scan.ID, nil); err != nil || n != 0 {
+		t.Fatalf("empty insert = %d,%v, want 0,nil", n, err)
+	}
+	if got, err := s.LatestFuzzResults(ctx, scan.ID); err != nil || len(got) != 0 {
+		t.Fatalf("latest after clean run = %v,%v, want empty", got, err)
+	}
+}
+
+// TestAllTestRunsKeepsRunsSeparate is the negative control for the history list:
+// two runs against the same scan must stay two separate records, newest first,
+// never merged into one — the whole point of an append-only runtime history.
+func TestAllTestRunsKeepsRunsSeparate(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	proj, _ := s.UpsertProject(ctx, "app", "/src/app", "example.com/app")
+	scan, _ := s.BeginScan(ctx, proj.ID, "abc", false, "0.1.0", SchemaLive, nil)
+
+	first := []TestResult{
+		{Method: "GET", Path: "/a", IdentityRole: "student", Expectation: "blocked", SafetyClass: "allow", Outcome: "divergent", StatusCode: 200, Detail: "served"},
+		{Method: "GET", Path: "/b", IdentityRole: "admin", Expectation: "allowed", SafetyClass: "allow", Outcome: "pass", StatusCode: 200, Detail: "ok"},
+	}
+	second := []TestResult{
+		{Method: "GET", Path: "/c", IdentityRole: "admin", Expectation: "allowed", SafetyClass: "allow", Outcome: "pass", StatusCode: 200, Detail: "ok"},
+	}
+	if _, err := s.InsertTestResults(ctx, scan.ID, first); err != nil {
+		t.Fatalf("insert first run: %v", err)
+	}
+	if _, err := s.InsertTestResults(ctx, scan.ID, second); err != nil {
+		t.Fatalf("insert second run: %v", err)
+	}
+
+	runs, err := s.AllTestRuns(ctx, proj.ID)
+	if err != nil {
+		t.Fatalf("read run history: %v", err)
+	}
+	if len(runs) != 2 {
+		t.Fatalf("two inserts must yield two separate runs, got %d", len(runs))
+	}
+	// Newest first: the single-result run leads, the two-result run follows.
+	if len(runs[0].Results) != 1 || len(runs[1].Results) != 2 {
+		t.Errorf("runs merged or misordered: got sizes %d, %d (want 1, 2)", len(runs[0].Results), len(runs[1].Results))
+	}
+	if runs[0].ExecutedAt == runs[1].ExecutedAt {
+		t.Errorf("distinct runs share an executed_at (%q): they would collapse into one", runs[0].ExecutedAt)
 	}
 }

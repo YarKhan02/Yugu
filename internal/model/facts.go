@@ -29,6 +29,12 @@ const (
 	FactMiddleware FactKind = "middleware"
 	FactHandler    FactKind = "handler"
 
+	// FactRequestSchema records the inputs an endpoint reads from the request
+	// (body fields, path and query parameters). It is what the runtime fuzzer
+	// consumes to build valid and invalid payloads; the static side produces it
+	// so the fuzzer never parses source.
+	FactRequestSchema FactKind = "request_schema"
+
 	// Call graph facts.
 	FactCallEdge FactKind = "call_edge"
 
